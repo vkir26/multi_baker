@@ -1,4 +1,4 @@
-import sqlite3
+from database import connect_db
 import csv
 from pathlib import Path
 from dataclasses import dataclass
@@ -32,59 +32,30 @@ def write_from_csv(filepath: Path) -> DataTables:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class Request:
-    query: str
-    data: set[str] | list[dict[int, str]] | None
-
-
 def build_insert(table_name: str, columns: str) -> str:
     split_columns = ", ".join("?" * len(columns.split(",")))
     return insert.format(table_name, columns, split_columns)
 
 
-def connect_db(
-    filepath: Path, query: str, data: set[str] | list[dict[int, str]] | None = None
-) -> None:
-    with sqlite3.connect(filepath) as connect:
-        request = Request(query=query, data=data)
-        execute_request(cursor=connect.cursor(), request=request)
-
-
-def execute_request(cursor: sqlite3.Cursor, request: Request) -> None:
-    if request.data:
-        for data in request.data:
-            if isinstance(data, dict):
-                cursor.execute(request.query, tuple(*data.items()))
-            else:
-                cursor.execute(request.query, (data,))
-    else:
-        cursor.execute(request.query)
-
-
 if __name__ == "__main__":
     csv_file = Path("files/multi_baker.csv")
-    baker_table = Path("files/multi_baker.db")
-    panel_table = Path("files/panels.db")
     data_tables = write_from_csv(csv_file)
     create = """ CREATE TABLE IF NOT EXISTS {}(id INTEGER PRIMARY KEY, {}) """
     insert = """ INSERT INTO {} ({}) VALUES({}) """
 
+    connect_db(query=create.format("multi_baker", "models TEXT NOT NULL UNIQUE"))
     connect_db(
-        filepath=baker_table, query=create.format("multi_baker", "models TEXT NOT NULL")
-    )
-    connect_db(
-        filepath=baker_table,
         query=build_insert(table_name="multi_baker", columns="models"),
         data=data_tables.models,
     )
-
     connect_db(
-        filepath=panel_table,
-        query=create.format("panels", "model_id INT NOT NULL, panels TEXT NOT NULL"),
+        query=create.format(
+            "panels",
+            "model_id INT NOT NULL, panels TEXT NOT NULL, "
+            "FOREIGN KEY (model_id) REFERENCES multi_baker(id)",
+        )
     )
     connect_db(
-        filepath=panel_table,
         query=build_insert(table_name="panels", columns="model_id, panels"),
         data=data_tables.panels,
     )
