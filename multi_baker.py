@@ -1,7 +1,8 @@
-from database import connect_db
+from database import connect_db, get_bakers, get_baker
 import csv
 from pathlib import Path
 from dataclasses import dataclass
+from menu import Menu
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,8 +41,8 @@ def build_insert(table_name: str, columns: str) -> str:
 if __name__ == "__main__":
     csv_file = Path("files/multi_baker.csv")
     data_tables = write_from_csv(csv_file)
-    create = """ CREATE TABLE IF NOT EXISTS {}(id INTEGER PRIMARY KEY, {}) """
-    insert = """ INSERT INTO {} ({}) VALUES({}) """
+    create = """ CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY, {}) """
+    insert = """ INSERT INTO {} ({}) VALUES ({}) """
 
     connect_db(query=create.format("multi_baker", "models TEXT NOT NULL UNIQUE"))
     connect_db(
@@ -59,3 +60,21 @@ if __name__ == "__main__":
         query=build_insert(table_name="panels", columns="model_id, panels"),
         data=data_tables.panels,
     )
+
+    while True:
+        print("Выберете меню:")
+        for menu in Menu:
+            print(f"{menu}. {menu.message()}")
+        try:
+            select_menu = int(input("Ввод: "))
+            match Menu(select_menu):
+                case Menu.BAKER_MODEL:
+                    select_model = int(input("Укажите ID модели: "))
+                    multi_baker = get_baker(select_model)
+                    if multi_baker.model is not None:
+                        print(multi_baker)
+                case Menu.BAKER_ALL:
+                    for baker in get_bakers():
+                        print(baker)
+        except ValueError:
+            print("Не найдено")
