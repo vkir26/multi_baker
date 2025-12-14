@@ -1,8 +1,6 @@
-from database import connect_db, get_bakers, get_baker
 import csv
 from pathlib import Path
 from dataclasses import dataclass
-from menu import Menu
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,29 +29,3 @@ def read_from_csv(filepath: Path) -> DataTables:
         return DataTables(
             models=models, panels=get_id(models=models, panels_list=panels)
         )
-
-
-if __name__ == "__main__":
-    csv_file = Path("files/multi_baker.csv")
-    data_tables = read_from_csv(csv_file)
-
-    connect_db(table_name="multi_baker", columns="model", data=data_tables.models)
-    connect_db(table_name="panel", columns="model_id, panel", data=data_tables.panels)
-
-    while True:
-        print("Выберете меню:")
-        for menu in Menu:
-            print(f"{menu}. {menu.message()}")
-        try:
-            select_menu = int(input("Ввод: "))
-            match Menu(select_menu):
-                case Menu.BAKER_MODEL:
-                    select_model = int(input("Укажите ID модели: "))
-                    multi_baker = get_baker(select_model)
-                    if multi_baker.model is not None:
-                        print(multi_baker)
-                case Menu.BAKER_ALL:
-                    for baker in get_bakers():
-                        print(baker)
-        except ValueError:
-            print("Не найдено")
