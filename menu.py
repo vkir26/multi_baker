@@ -6,7 +6,7 @@ class Menu(IntEnum):
     BAKER_MODEL = 1
     BAKER_ALL = 2
 
-    def message(self):
+    def message(self) -> str:
         match self:
             case Menu.BAKER_MODEL:
                 return "Указать ID модели"

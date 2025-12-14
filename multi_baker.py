@@ -20,7 +20,7 @@ def get_id(models: set[str], panels_list: list[dict[str, str]]) -> list[dict[int
     return panels
 
 
-def write_from_csv(filepath: Path) -> DataTables:
+def read_from_csv(filepath: Path) -> DataTables:
     with open(filepath, "r", newline="") as csvfile:
         reader = csv.DictReader(csvfile, delimiter=";")
         models = set()
@@ -33,33 +33,12 @@ def write_from_csv(filepath: Path) -> DataTables:
         )
 
 
-def build_insert(table_name: str, columns: str) -> str:
-    split_columns = ", ".join("?" * len(columns.split(",")))
-    return insert.format(table_name, columns, split_columns)
-
-
 if __name__ == "__main__":
     csv_file = Path("files/multi_baker.csv")
-    data_tables = write_from_csv(csv_file)
-    create = """ CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY, {}) """
-    insert = """ INSERT INTO {} ({}) VALUES ({}) """
+    data_tables = read_from_csv(csv_file)
 
-    connect_db(query=create.format("multi_baker", "models TEXT NOT NULL UNIQUE"))
-    connect_db(
-        query=build_insert(table_name="multi_baker", columns="models"),
-        data=data_tables.models,
-    )
-    connect_db(
-        query=create.format(
-            "panels",
-            "model_id INT NOT NULL, panels TEXT NOT NULL, "
-            "FOREIGN KEY (model_id) REFERENCES multi_baker(id)",
-        )
-    )
-    connect_db(
-        query=build_insert(table_name="panels", columns="model_id, panels"),
-        data=data_tables.panels,
-    )
+    connect_db(table_name="multi_baker", columns="model", data=data_tables.models)
+    connect_db(table_name="panel", columns="model_id, panel", data=data_tables.panels)
 
     while True:
         print("Выберете меню:")
