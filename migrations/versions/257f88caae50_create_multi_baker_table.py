@@ -18,13 +18,20 @@ def upgrade() -> None:
     op.execute(
         "CREATE TABLE IF NOT EXISTS panel ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "panel TEXT NOT NULL UNIQUE);"
+    )
+    op.execute(
+        "CREATE TABLE IF NOT EXISTS model_panel ("
         "model_id INTEGER NOT NULL, "
-        "panel TEXT NOT NULL,"
-        "FOREIGN KEY (model_id) REFERENCES multi_baker(id)"
-        "UNIQUE (model_id, panel));"
+        "panel_id INTEGER NOT NULL,"
+        "PRIMARY KEY (model_id, panel_id)"
+        "FOREIGN KEY (model_id) REFERENCES multi_baker(id),"
+        "FOREIGN KEY (panel_id) REFERENCES panel(id));"
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     op.execute(""" DROP TABLE multi_baker """)
+    op.execute(""" DROP TABLE panel """)
+    op.execute(""" DROP TABLE model_panel """)

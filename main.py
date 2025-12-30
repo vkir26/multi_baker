@@ -39,7 +39,9 @@ def file_parse(parse: bool) -> None:
 @multi_baker.command()
 @click.option("--by_id", help="Поиск модели по ID.", type=int)
 def get_model(by_id: int) -> None:
-    click.echo(get_baker(by_id))
+    baker = get_baker(by_id)
+    if baker.model:
+        click.echo(baker)
 
 
 @multi_baker.command()

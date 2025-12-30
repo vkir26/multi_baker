@@ -6,10 +6,29 @@ from sqlite3 import Cursor
 filepath_db = Path("files/multi_baker.db")
 
 
+def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
+    panel_id: dict[str, int] = {}
+    for panel in panels:
+        cursor.execute(
+            """ INSERT INTO panel (panel)
+                VALUES (?) """,
+            (panel,),
+        )
+        rowid = cursor.lastrowid
+        if rowid is None:
+            raise RuntimeError("Не удалось получить id панели")
+        panel_id[panel] = rowid
+    return panel_id
+
+
 def insert_data(data: dict[str, list[str]]) -> None:
     try:
         with sqlite3.connect(filepath_db) as connect:
             cursor = connect.cursor()
+            unique_panels = {p for panels in data.values() for p in panels}
+            panels_id: dict[str, int] = insert_panels(
+                cursor=cursor, panels=unique_panels
+            )
             for model, panels in data.items():
                 cursor.execute(
                     """ INSERT INTO multi_baker (model)
@@ -18,10 +37,11 @@ def insert_data(data: dict[str, list[str]]) -> None:
                 )
                 model_id = cursor.lastrowid
                 for panel in panels:
+                    panel_id = panels_id[panel]
                     cursor.execute(
-                        """ INSERT INTO panel (model_id, panel)
+                        """ INSERT INTO model_panel (model_id, panel_id)
                                        VALUES (?, ?) """,
-                        (model_id, panel),
+                        (model_id, panel_id),
                     )
     except sqlite3.Error as e:
         print(f"Ошибка: {e}")
@@ -42,7 +62,7 @@ class BakerView:
 def get_bakers() -> list[BakerView]:
     request = data_request(
         query=""" SELECT id, model
-                                     FROM multi_baker """
+                  FROM multi_baker """
     )
     return [BakerView(id=id_model, model=model) for id_model, model in request]
 
@@ -55,7 +75,7 @@ class BakerWithPanels:
 
 def get_baker(baker_id: int) -> BakerWithPanels:
     request = data_request(
-        query=f""" SELECT mb.id, model, panel FROM multi_baker mb JOIN panel p ON p.model_id = mb.id WHERE mb.id = {baker_id}"""
+        query=f""" SELECT mb.id, model, panel FROM multi_baker mb JOIN model_panel mp ON mb.id = mp.model_id JOIN panel p ON p.id = mp.panel_id WHERE mb.id = {baker_id} """
     )
     baker = None
     panels = []
