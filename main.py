@@ -2,22 +2,25 @@ import csv
 import sqlite3
 import click
 from pathlib import Path
-from database import insert_data, get_bakers, get_baker
+from database import insert_data, get_bakers, get_baker, MultiBaker
 
 
-def read_from_csv(filepath: Path) -> dict[str, list[str]]:
-    with open(filepath, "r", newline="") as csvfile:
-        reader = csv.DictReader(csvfile, delimiter=";")
+def read_from_csv(filepath: Path) -> list[MultiBaker]:
+    with open(filepath, "r", newline="") as file_csv:
+        reader = csv.DictReader(file_csv, delimiter=";")
         models: dict[str, list[str]] = {}
         for i in reader:
             model = i["models"]
             if model not in models:
                 models[model] = []
             models[model].append(i["panels"])
-        return models
+        multi_bakers: list[MultiBaker] = [
+            {"model": model, "panels": panels} for model, panels in models.items()
+        ]
+        return multi_bakers
 
 
-def fill_database() -> None:
+def fill_database(data: list[MultiBaker]) -> None:
     try:
         insert_data(data=data)
     except sqlite3.OperationalError as e:
@@ -31,25 +34,36 @@ def multi_baker() -> None:
 
 
 @multi_baker.command()
-@click.option("--parse", is_flag=True, help="Заполнить базу данных из CSV.")
-def file_parse(parse: bool) -> None:
-    fill_database()
+@click.option("--parse", help="Парсинг файла и запись данных в БД")
+def file_parse(parse: str) -> None:
+    csv_file = Path(parse)
+    if csv_file.is_file():
+        data = read_from_csv(filepath=Path(parse))
+        fill_database(data=data)
+    else:
+        click.echo("Файл не найден")
 
 
 @multi_baker.command()
 @click.option("--by_id", help="Поиск модели по ID.", type=int)
 def get_model(by_id: int) -> None:
-    baker = get_baker(by_id)
+    baker = get_baker(baker_id=by_id)
     if baker.model:
         click.echo(baker)
+    else:
+        click.echo("Не найдено")
 
 
 @multi_baker.command()
 @click.option("--all_models", is_flag=True, help="Все доступные модели.")
 def get_models(all_models: bool) -> None:
-    click.echo("Список доступных моделей:")
-    for baker in get_bakers():
-        click.echo(baker)
+    baker_models = get_bakers()
+    if baker_models:
+        click.echo("Список доступных моделей:")
+        for baker in baker_models:
+            click.echo(baker)
+    else:
+        click.echo("Не найдено")
 
 
 def main() -> None:
@@ -57,6 +71,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    csv_file = Path("files/multi_baker.csv")
-    data = read_from_csv(csv_file)
     main()

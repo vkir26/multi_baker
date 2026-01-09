@@ -2,8 +2,9 @@ import sqlite3
 from pathlib import Path
 from dataclasses import dataclass
 from sqlite3 import Cursor
+from typing import TypedDict
 
-filepath_db = Path("files/multi_baker.db")
+filepath = Path("files/multi_baker.db")
 
 
 def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
@@ -21,26 +22,31 @@ def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
     return panel_id
 
 
-def insert_data(data: dict[str, list[str]]) -> None:
+class MultiBaker(TypedDict):
+    model: str
+    panels: list[str]
+
+
+def insert_data(data: list[MultiBaker]) -> None:
     try:
-        with sqlite3.connect(filepath_db) as connect:
+        with sqlite3.connect(filepath) as connect:
             cursor = connect.cursor()
-            unique_panels = {p for panels in data.values() for p in panels}
+            unique_panels = {panel for baker in data for panel in baker["panels"]}
             panels_id: dict[str, int] = insert_panels(
                 cursor=cursor, panels=unique_panels
             )
-            for model, panels in data.items():
+            for baker in data:
                 cursor.execute(
                     """ INSERT INTO multi_baker (model)
-                                   VALUES (?) """,
-                    (model,),
+                        VALUES (?) """,
+                    (baker["model"],),
                 )
                 model_id = cursor.lastrowid
-                for panel in panels:
+                for panel in baker["panels"]:
                     panel_id = panels_id[panel]
                     cursor.execute(
                         """ INSERT INTO model_panel (model_id, panel_id)
-                                       VALUES (?, ?) """,
+                            VALUES (?, ?) """,
                         (model_id, panel_id),
                     )
     except sqlite3.Error as e:
@@ -48,7 +54,7 @@ def insert_data(data: dict[str, list[str]]) -> None:
 
 
 def data_request(query: str) -> Cursor:
-    with sqlite3.connect(filepath_db) as connect:
+    with sqlite3.connect(filepath) as connect:
         cursor = connect.cursor()
         return cursor.execute(query)
 
