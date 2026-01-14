@@ -1,7 +1,6 @@
 import sqlite3
 from pathlib import Path
 from dataclasses import dataclass
-from sqlite3 import Cursor
 from typing import TypedDict
 
 filepath = Path("files/multi_baker.db")
@@ -53,10 +52,9 @@ def insert_data(data: list[MultiBaker]) -> None:
         print(f"Ошибка: {e}")
 
 
-def data_request(query: str) -> Cursor:
+def get_cursor() -> sqlite3.Cursor:
     with sqlite3.connect(filepath) as connect:
-        cursor = connect.cursor()
-        return cursor.execute(query)
+        return connect.cursor()
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,27 +64,31 @@ class BakerView:
 
 
 def get_bakers() -> list[BakerView]:
-    request = data_request(
-        query=""" SELECT id, model
-                  FROM multi_baker """
-    )
+    cursor = get_cursor()
+    request = cursor.execute(""" SELECT id, model FROM multi_baker """)
     return [BakerView(id=id_model, model=model) for id_model, model in request]
 
 
 @dataclass(frozen=True, slots=True)
 class BakerWithPanels:
-    model: str | None
+    model: str
     panels: list[str]
 
 
 def get_baker(baker_id: int) -> BakerWithPanels:
-    request = data_request(
-        query=f""" SELECT mb.id, model, panel FROM multi_baker mb JOIN model_panel mp ON mb.id = mp.model_id JOIN panel p ON p.id = mp.panel_id WHERE mb.id = {baker_id} """
+    cursor = get_cursor()
+    request = cursor.execute(
+        """ SELECT model, panel
+                                 FROM multi_baker mb
+                                          JOIN model_panel mp ON mb.id = mp.model_id
+                                          JOIN panel p ON p.id = mp.panel_id
+                                 WHERE mb.id = ?; """,
+        f"{baker_id}",
     )
-    baker = None
+
+    baker = set()
     panels = []
-    for model_id, model, panel in request:
-        if baker is None:
-            baker = model
+    for model, panel in request:
+        baker.add(model)
         panels.append(panel)
-    return BakerWithPanels(model=baker, panels=panels)
+    return BakerWithPanels(model="".join(baker), panels=panels)

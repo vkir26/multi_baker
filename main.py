@@ -34,11 +34,11 @@ def multi_baker() -> None:
 
 
 @multi_baker.command()
-@click.option("--parse", help="Парсинг файла и запись данных в БД")
-def file_parse(parse: str) -> None:
-    csv_file = Path(parse)
+@click.option("--file", help="Парсинг файла и запись данных в БД")
+def file_parse(file: str) -> None:
+    csv_file = Path(file)
     if csv_file.is_file():
-        data = read_from_csv(filepath=Path(parse))
+        data = read_from_csv(filepath=Path(file))
         fill_database(data=data)
     else:
         click.echo("Файл не найден")
@@ -55,8 +55,7 @@ def get_model(by_id: int) -> None:
 
 
 @multi_baker.command()
-@click.option("--all_models", is_flag=True, help="Все доступные модели.")
-def get_models(all_models: bool) -> None:
+def get_models() -> None:
     baker_models = get_bakers()
     if baker_models:
         click.echo("Список доступных моделей:")
