@@ -55,10 +55,11 @@ def get_model(by_id: int) -> None:
 
 
 @multi_baker.command()
-def get_models() -> None:
-    baker_models = get_bakers()
+@click.option("--page", help="Номер страницы. По-умолчанию: 1", type=int)
+def get_models(page: int) -> None:
+    baker_models = get_bakers(page=page)
     if baker_models:
-        click.echo("Список доступных моделей:")
+        click.echo(f"Список доступных моделей №{page}:")
         for baker in baker_models:
             click.echo(baker)
     else:

@@ -63,10 +63,26 @@ class BakerView:
     model: str
 
 
-def get_bakers() -> list[BakerView]:
+def get_page_params(page: int | None, limit: int) -> list[int]:
+    params = []
+
+    if page is not None:
+        offset = (page - 1) * limit
+        params.extend([limit, offset])
+    return params
+
+
+def get_bakers(page: int | None = None, limit: int = 3) -> list[BakerView]:
     cursor = get_cursor()
-    request = cursor.execute(""" SELECT id, model FROM multi_baker """)
-    return [BakerView(id=id_model, model=model) for id_model, model in request]
+    request = """ SELECT id, model
+                  FROM multi_baker """
+    params = get_page_params(page, limit)
+    if params:
+        request += " LIMIT ? OFFSET ?"
+    return [
+        BakerView(id=id_model, model=model)
+        for id_model, model in cursor.execute(request, params)
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,11 +95,11 @@ def get_baker(baker_id: int) -> BakerWithPanels:
     cursor = get_cursor()
     request = cursor.execute(
         """ SELECT model, panel
-                                 FROM multi_baker mb
-                                          JOIN model_panel mp ON mb.id = mp.model_id
-                                          JOIN panel p ON p.id = mp.panel_id
-                                 WHERE mb.id = ?; """,
-        f"{baker_id}",
+            FROM multi_baker mb
+                     JOIN model_panel mp ON mb.id = mp.model_id
+                     JOIN panel p ON p.id = mp.panel_id
+            WHERE mb.id = ?; """,
+        (baker_id,),
     )
 
     baker = set()
