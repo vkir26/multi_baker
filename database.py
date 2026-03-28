@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import TypedDict, cast
 
 filepath = Path("files/multi_baker.db")
 
@@ -60,7 +60,7 @@ def get_cursor() -> sqlite3.Cursor:
 @dataclass(frozen=True, slots=True)
 class BakerView:
     id: int
-    model: str
+    name: str
 
 
 def get_page_params(page: int | None, limit: int) -> list[int]:
@@ -80,8 +80,21 @@ def get_bakers(page: int | None = None, limit: int = 3) -> list[BakerView]:
     if params:
         request += " LIMIT ? OFFSET ?"
     return [
-        BakerView(id=id_model, model=model)
+        BakerView(id=id_model, name=model)
         for id_model, model in cursor.execute(request, params)
+    ]
+
+
+def get_baking_tins(page: int | None = None, limit: int = 3) -> list[BakerView]:
+    cursor = get_cursor()
+    request = """ SELECT id, panel
+                  FROM panel """
+    params = get_page_params(page, limit)
+    if params:
+        request += " LIMIT ? OFFSET ?"
+    return [
+        BakerView(id=id_panel, name=panel)
+        for id_panel, panel in cursor.execute(request, params)
     ]
 
 
@@ -108,3 +121,17 @@ def get_baker(baker_id: int) -> BakerWithPanels:
         baker.add(model)
         panels.append(panel)
     return BakerWithPanels(model="".join(baker), panels=panels)
+
+
+def get_baking_dish(panel_id: int) -> str | None:
+    cursor = get_cursor()
+    request = cursor.execute(
+        """ SELECT panel
+                                 FROM panel
+                                 WHERE id = ?; """,
+        (panel_id,),
+    )
+    row = cast(tuple[str] | None, request.fetchone())
+    if row:
+        return row[0]
+    return None
