@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 from dataclasses import dataclass
 from typing import TypedDict, cast
+from fastapi import HTTPException
 
 filepath = Path("files/multi_baker.db")
 
@@ -49,7 +50,7 @@ def insert_data(data: list[MultiBaker]) -> None:
                         (model_id, panel_id),
                     )
     except sqlite3.Error as e:
-        print(f"Ошибка: {e}")
+        raise HTTPException(status_code=503, detail=f"Ошибка: {e}")
 
 
 def get_cursor() -> sqlite3.Cursor:
@@ -72,30 +73,28 @@ def get_page_params(page: int | None, limit: int) -> list[int]:
     return params
 
 
-def get_bakers(page: int | None = None, limit: int = 3) -> list[BakerView]:
+def get_data_multibakers(request: str, page: int | None, limit: int) -> list[BakerView]:
     cursor = get_cursor()
-    request = """ SELECT id, model
-                  FROM multi_baker """
-    params = get_page_params(page, limit)
+
+    params = get_page_params(page=page, limit=limit)
     if params:
         request += " LIMIT ? OFFSET ?"
     return [
-        BakerView(id=id_model, name=model)
-        for id_model, model in cursor.execute(request, params)
+        BakerView(id=name_id, name=name)
+        for name_id, name in cursor.execute(request, params)
     ]
+
+
+def get_bakers(page: int | None = None, limit: int = 3) -> list[BakerView]:
+    request = """ SELECT id, model
+                  FROM multi_baker """
+    return get_data_multibakers(request=request, page=page, limit=limit)
 
 
 def get_baking_tins(page: int | None = None, limit: int = 3) -> list[BakerView]:
-    cursor = get_cursor()
     request = """ SELECT id, panel
                   FROM panel """
-    params = get_page_params(page, limit)
-    if params:
-        request += " LIMIT ? OFFSET ?"
-    return [
-        BakerView(id=id_panel, name=panel)
-        for id_panel, panel in cursor.execute(request, params)
-    ]
+    return get_data_multibakers(request=request, page=page, limit=limit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,8 +126,8 @@ def get_baking_dish(panel_id: int) -> str | None:
     cursor = get_cursor()
     request = cursor.execute(
         """ SELECT panel
-                                 FROM panel
-                                 WHERE id = ?; """,
+            FROM panel
+            WHERE id = ?; """,
         (panel_id,),
     )
     row = cast(tuple[str] | None, request.fetchone())

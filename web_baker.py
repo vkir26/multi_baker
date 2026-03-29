@@ -1,4 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form, Request
+from starlette.templating import _TemplateResponse
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from database import MultiBaker, insert_data
+from typing import Annotated
+
 from database import (
     get_bakers,
     get_baker,
@@ -55,3 +61,20 @@ def get_panels(page: int | None = None) -> list[BakerView]:
     if check_pages(page=page, page_size=page_size, number_records=total_panels):
         raise HTTPException(status_code=404)
     return get_baking_tins(page=page, limit=page_size)
+
+
+@app.get("/model/add", response_class=HTMLResponse)
+def create_model(request: Request) -> _TemplateResponse:
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse(
+        name="create_model.html", context={"request": request}, request=request
+    )
+
+
+@app.post("/model/add")
+def insert_model(
+    model_name: Annotated[str, Form()], panel_name: Annotated[str, Form()]
+) -> dict[str, str]:
+    data = [MultiBaker(model=model_name, panels=panel_name.split(","))]
+    insert_data(data=data)
+    return {"модель": model_name, "status": "успешно добавлена"}
