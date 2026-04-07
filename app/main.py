@@ -72,11 +72,11 @@ def get_panel(by_id: int) -> None:
 
 
 @multi_baker.command()
-@click.option("--page", help="Номер страницы. По-умолчанию: 1", type=int)
+@click.option("--page", help="Номер страницы.", type=int)
 def get_models(page: int) -> None:
-    baker_models = get_bakers(page=page)
+    baker_models = get_bakers(page=page, limit=3)
     if baker_models:
-        click.echo(f"Список доступных моделей №{page}:")
+        click.echo("Список моделей:")
         for baker in baker_models:
             click.echo(baker)
     else:
@@ -84,15 +84,24 @@ def get_models(page: int) -> None:
 
 
 @multi_baker.command()
-@click.option("--page", help="Номер страницы. По-умолчанию: 1", type=int)
+@click.option("--page", help="Номер страницы.", type=int)
 def get_panels(page: int) -> None:
-    panels = get_baking_tins(page=page)
+    panels = get_baking_tins(page=page, limit=3)
     if panels:
-        click.echo(f"Список доступных панелей №{page}:")
+        click.echo("Список панелей:")
         for panel in panels:
             click.echo(panel)
     else:
         click.echo("Не найдено")
+
+
+@multi_baker.command()
+@click.option("--model", help="Добавить модель.", type=str)
+@click.option("--panel", help="Добавить панель.", type=str, multiple=True)
+def add_model(model: str, panel: str) -> None:
+    data: list[MultiBaker] = [MultiBaker(model=model, panels=list(panel))]
+    fill_database(data=data)
+    click.echo(f"Модель: {model} - успешно добавлена")
 
 
 def main() -> None:

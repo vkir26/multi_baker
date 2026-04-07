@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from typing import TypedDict, cast
 from fastapi import HTTPException
 
-filepath = Path("files/multi_baker.db")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+filepath = ROOT_DIR / "files" / "multi_baker.db"
 
 
 def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
@@ -85,13 +86,13 @@ def get_data_multibakers(request: str, page: int | None, limit: int) -> list[Bak
     ]
 
 
-def get_bakers(page: int | None = None, limit: int = 3) -> list[BakerView]:
+def get_bakers(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, model
                   FROM multi_baker """
     return get_data_multibakers(request=request, page=page, limit=limit)
 
 
-def get_baking_tins(page: int | None = None, limit: int = 3) -> list[BakerView]:
+def get_baking_tins(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, panel
                   FROM panel """
     return get_data_multibakers(request=request, page=page, limit=limit)
@@ -103,7 +104,7 @@ class BakerWithPanels:
     panels: list[str]
 
 
-def get_baker(baker_id: int) -> BakerWithPanels:
+def get_baker(baker_id: int) -> BakerWithPanels | None:
     cursor = get_cursor()
     request = cursor.execute(
         """ SELECT model, panel
@@ -119,6 +120,9 @@ def get_baker(baker_id: int) -> BakerWithPanels:
     for model, panel in request:
         baker.add(model)
         panels.append(panel)
+    multi_baker = BakerWithPanels(model="".join(baker), panels=panels)
+    if len(multi_baker.model) == 0:
+        return None
     return BakerWithPanels(model="".join(baker), panels=panels)
 
 
