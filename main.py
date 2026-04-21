@@ -1,8 +1,7 @@
 import csv
-import sqlite3
 import click
 from pathlib import Path
-from database import (
+from app.database import (
     insert_data,
     get_bakers,
     get_baker,
@@ -17,21 +16,14 @@ def read_from_csv(filepath: Path) -> list[MultiBaker]:
         reader = csv.DictReader(file_csv, delimiter=";")
         models: dict[str, list[str]] = {}
         for i in reader:
-            model = i["models"]
+            model = i["model"]
             if model not in models:
                 models[model] = []
-            models[model].append(i["panels"])
+            models[model].append(i["panel"])
         multi_bakers: list[MultiBaker] = [
-            {"model": model, "panels": panels} for model, panels in models.items()
+            MultiBaker(model=model, panels=panels) for model, panels in models.items()
         ]
         return multi_bakers
-
-
-def fill_database(data: list[MultiBaker]) -> None:
-    try:
-        insert_data(data=data)
-    except sqlite3.OperationalError as e:
-        print(f"Ошибка: {e}")
 
 
 @click.group()
@@ -45,8 +37,8 @@ def multi_baker() -> None:
 def file_parse(file: str) -> None:
     csv_file = Path(file)
     if csv_file.is_file():
-        data = read_from_csv(filepath=Path(file))
-        fill_database(data=data)
+        for baker in read_from_csv(filepath=Path(file)):
+            insert_data(baker=baker)
     else:
         click.echo("Файл не найден")
 
@@ -55,7 +47,7 @@ def file_parse(file: str) -> None:
 @click.option("--by_id", help="Поиск модели по ID.", type=int)
 def get_model(by_id: int) -> None:
     baker = get_baker(baker_id=by_id)
-    if baker.model:
+    if baker:
         click.echo(baker)
     else:
         click.echo("Не найдено")
@@ -99,8 +91,8 @@ def get_panels(page: int) -> None:
 @click.option("--model", help="Добавить модель.", type=str)
 @click.option("--panel", help="Добавить панель.", type=str, multiple=True)
 def add_model(model: str, panel: str) -> None:
-    data: list[MultiBaker] = [MultiBaker(model=model, panels=list(panel))]
-    fill_database(data=data)
+    baker = MultiBaker(model=model, panels=list(panel))
+    insert_data(baker=baker)
     click.echo(f"Модель: {model} - успешно добавлена")
 
 

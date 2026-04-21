@@ -1,10 +1,6 @@
-from fastapi import FastAPI, HTTPException, Form, Request, APIRouter, Depends
+from fastapi import FastAPI, HTTPException, APIRouter, Depends
 from pydantic import BaseModel, Field
-from starlette.templating import _TemplateResponse
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from database import MultiBaker, insert_data, get_baking_dish
-from typing import Annotated
 from database import (
     get_bakers,
     get_baker,
@@ -74,7 +70,7 @@ def get_panels(request: RequestPagination = Depends()) -> PanelsResponse:
 
 class AddModel(BaseModel):
     name: str
-    panels: str
+    panels: list[str] = Field(default_factory=list)
 
 
 class AddModelResponse(BaseModel):
@@ -82,16 +78,10 @@ class AddModelResponse(BaseModel):
     status: str
 
 
-@router_v1.get("/model/add", response_class=HTMLResponse)
-def create_model(request: Request) -> _TemplateResponse:
-    templates = Jinja2Templates(directory="templates")
-    return templates.TemplateResponse(name="create_model.html", request=request)
-
-
 @router_v1.post("/model/add")
-def insert_model(request: Annotated[AddModel, Form(max_length=15)]) -> AddModelResponse:
-    data = [MultiBaker(model=request.name, panels=request.panels.split(","))]
-    insert_data(data=data)
+def add_model(request: AddModel) -> AddModelResponse:
+    baker = MultiBaker(model=request.name, panels=request.panels)
+    insert_data(baker=baker)
     return AddModelResponse(name=request.name, status="успешно добавлена")
 
 
