@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException, APIRouter, Depends
+from fastapi import FastAPI, HTTPException, APIRouter, Depends, status
 from pydantic import BaseModel, Field
-from database import MultiBaker, insert_data, get_baking_dish
+from database import MultiBaker, insert_data, get_panel_by_id
 from database import (
-    get_bakers,
     get_baker,
-    get_baking_tins,
+    get_models_page,
+    get_panels_page,
     BakerWithPanels,
     BakerView,
 )
@@ -22,6 +22,7 @@ router_v1 = APIRouter(prefix="/v1")
 
 class RequestPagination(BaseModel):
     page: int | None = Field(None, ge=1)
+    page_size: int = Field(3, ge=1)
 
 
 class ModelsResponse(BaseModel):
@@ -38,33 +39,37 @@ class PanelsResponse(BaseModel):
 def get_model(by_id: int) -> BakerWithPanels:
     baker = get_baker(baker_id=by_id)
     if baker is None:
-        raise HTTPException(status_code=400, detail="Модель не найдена")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Модель не найдена"
+        )
     return baker
 
 
 @router_v1.get("/panel")
 def get_panel(by_id: int) -> str:
-    panel = get_baking_dish(panel_id=by_id)
+    panel = get_panel_by_id(panel_id=by_id)
     if panel is None:
-        raise HTTPException(status_code=400, detail="Панель не найдена")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Панель не найдена"
+        )
     return str(panel)
 
 
 @router_v1.get("/models", response_model=ModelsResponse)
 def get_models(request: RequestPagination = Depends()) -> ModelsResponse:
     page = request.page
-    page_size = 3
+    page_size = request.page_size
     return ModelsResponse(
-        models=get_bakers(page=page, limit=page_size), page_number=page
+        models=get_models_page(page=page, limit=page_size), page_number=page
     )
 
 
 @router_v1.get("/panels", response_model=PanelsResponse)
 def get_panels(request: RequestPagination = Depends()) -> PanelsResponse:
     page = request.page
-    page_size = 3
+    page_size = request.page_size
     return PanelsResponse(
-        panels=get_baking_tins(page=page, limit=page_size), page_number=page
+        panels=get_panels_page(page=page, limit=page_size), page_number=page
     )
 
 

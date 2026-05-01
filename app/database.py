@@ -99,13 +99,13 @@ def get_data_multibakers(request: str, page: int | None, limit: int) -> list[Bak
     ]
 
 
-def get_bakers(page: int | None, limit: int) -> list[BakerView]:
+def get_models_page(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, model
                   FROM multi_baker """
     return get_data_multibakers(request=request, page=page, limit=limit)
 
 
-def get_baking_tins(page: int | None, limit: int) -> list[BakerView]:
+def get_panels_page(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, panel
                   FROM panel """
     return get_data_multibakers(request=request, page=page, limit=limit)
@@ -141,7 +141,7 @@ def get_baker(baker_id: int) -> BakerWithPanels | None:
     return BakerWithPanels(model="".join(baker), panels=panels)
 
 
-def get_baking_dish(panel_id: int) -> str | None:
+def get_panel_by_id(panel_id: int) -> str | None:
     with sqlite3.connect(filepath) as connect:
         cursor = connect.cursor()
 

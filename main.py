@@ -3,10 +3,10 @@ import click
 from pathlib import Path
 from app.database import (
     insert_data,
-    get_bakers,
     get_baker,
-    get_baking_dish,
-    get_baking_tins,
+    get_models_page,
+    get_panel_by_id,
+    get_panels_page,
     MultiBaker,
 )
 
@@ -56,7 +56,7 @@ def get_model(by_id: int) -> None:
 @multi_baker.command()
 @click.option("--by_id", help="Поиск панели по ID.", type=int)
 def get_panel(by_id: int) -> None:
-    panel = get_baking_dish(panel_id=by_id)
+    panel = get_panel_by_id(panel_id=by_id)
     if panel:
         click.echo(panel)
     else:
@@ -66,7 +66,7 @@ def get_panel(by_id: int) -> None:
 @multi_baker.command()
 @click.option("--page", help="Номер страницы.", type=int)
 def get_models(page: int) -> None:
-    baker_models = get_bakers(page=page, limit=3)
+    baker_models = get_models_page(page=page, limit=3)
     if baker_models:
         click.echo("Список моделей:")
         for baker in baker_models:
@@ -78,7 +78,7 @@ def get_models(page: int) -> None:
 @multi_baker.command()
 @click.option("--page", help="Номер страницы.", type=int)
 def get_panels(page: int) -> None:
-    panels = get_baking_tins(page=page, limit=3)
+    panels = get_panels_page(page=page, limit=3)
     if panels:
         click.echo("Список панелей:")
         for panel in panels:
