@@ -1,9 +1,11 @@
 import sqlite3
 from pathlib import Path
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import TypedDict, cast
+from fastapi import HTTPException
 
-filepath = Path("files/multi_baker.db")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+filepath = ROOT_DIR / "files" / "multi_baker.db"
 
 
 def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
@@ -49,7 +51,7 @@ def insert_data(data: list[MultiBaker]) -> None:
                         (model_id, panel_id),
                     )
     except sqlite3.Error as e:
-        print(f"Ошибка: {e}")
+        raise HTTPException(status_code=503, detail=f"Ошибка: {e}")
 
 
 def get_cursor() -> sqlite3.Cursor:
@@ -60,13 +62,40 @@ def get_cursor() -> sqlite3.Cursor:
 @dataclass(frozen=True, slots=True)
 class BakerView:
     id: int
-    model: str
+    name: str
 
 
-def get_bakers() -> list[BakerView]:
+def get_page_params(page: int | None, limit: int) -> list[int]:
+    params = []
+
+    if page is not None:
+        offset = (page - 1) * limit
+        params.extend([limit, offset])
+    return params
+
+
+def get_data_multibakers(request: str, page: int | None, limit: int) -> list[BakerView]:
     cursor = get_cursor()
-    request = cursor.execute(""" SELECT id, model FROM multi_baker """)
-    return [BakerView(id=id_model, model=model) for id_model, model in request]
+
+    params = get_page_params(page=page, limit=limit)
+    if params:
+        request += " LIMIT ? OFFSET ?"
+    return [
+        BakerView(id=name_id, name=name)
+        for name_id, name in cursor.execute(request, params)
+    ]
+
+
+def get_bakers(page: int | None, limit: int) -> list[BakerView]:
+    request = """ SELECT id, model
+                  FROM multi_baker """
+    return get_data_multibakers(request=request, page=page, limit=limit)
+
+
+def get_baking_tins(page: int | None, limit: int) -> list[BakerView]:
+    request = """ SELECT id, panel
+                  FROM panel """
+    return get_data_multibakers(request=request, page=page, limit=limit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,15 +104,15 @@ class BakerWithPanels:
     panels: list[str]
 
 
-def get_baker(baker_id: int) -> BakerWithPanels:
+def get_baker(baker_id: int) -> BakerWithPanels | None:
     cursor = get_cursor()
     request = cursor.execute(
         """ SELECT model, panel
-                                 FROM multi_baker mb
-                                          JOIN model_panel mp ON mb.id = mp.model_id
-                                          JOIN panel p ON p.id = mp.panel_id
-                                 WHERE mb.id = ?; """,
-        f"{baker_id}",
+            FROM multi_baker mb
+                     JOIN model_panel mp ON mb.id = mp.model_id
+                     JOIN panel p ON p.id = mp.panel_id
+            WHERE mb.id = ?; """,
+        (baker_id,),
     )
 
     baker = set()
@@ -91,4 +120,21 @@ def get_baker(baker_id: int) -> BakerWithPanels:
     for model, panel in request:
         baker.add(model)
         panels.append(panel)
+    multi_baker = BakerWithPanels(model="".join(baker), panels=panels)
+    if len(multi_baker.model) == 0:
+        return None
     return BakerWithPanels(model="".join(baker), panels=panels)
+
+
+def get_baking_dish(panel_id: int) -> str | None:
+    cursor = get_cursor()
+    request = cursor.execute(
+        """ SELECT panel
+            FROM panel
+            WHERE id = ?; """,
+        (panel_id,),
+    )
+    row = cast(tuple[str] | None, request.fetchone())
+    if row:
+        return row[0]
+    return None

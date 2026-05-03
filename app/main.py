@@ -2,7 +2,14 @@ import csv
 import sqlite3
 import click
 from pathlib import Path
-from database import insert_data, get_bakers, get_baker, MultiBaker
+from database import (
+    insert_data,
+    get_bakers,
+    get_baker,
+    get_baking_dish,
+    get_baking_tins,
+    MultiBaker,
+)
 
 
 def read_from_csv(filepath: Path) -> list[MultiBaker]:
@@ -55,14 +62,46 @@ def get_model(by_id: int) -> None:
 
 
 @multi_baker.command()
-def get_models() -> None:
-    baker_models = get_bakers()
+@click.option("--by_id", help="Поиск панели по ID.", type=int)
+def get_panel(by_id: int) -> None:
+    panel = get_baking_dish(panel_id=by_id)
+    if panel:
+        click.echo(panel)
+    else:
+        click.echo("Не найдено")
+
+
+@multi_baker.command()
+@click.option("--page", help="Номер страницы.", type=int)
+def get_models(page: int) -> None:
+    baker_models = get_bakers(page=page, limit=3)
     if baker_models:
-        click.echo("Список доступных моделей:")
+        click.echo("Список моделей:")
         for baker in baker_models:
             click.echo(baker)
     else:
         click.echo("Не найдено")
+
+
+@multi_baker.command()
+@click.option("--page", help="Номер страницы.", type=int)
+def get_panels(page: int) -> None:
+    panels = get_baking_tins(page=page, limit=3)
+    if panels:
+        click.echo("Список панелей:")
+        for panel in panels:
+            click.echo(panel)
+    else:
+        click.echo("Не найдено")
+
+
+@multi_baker.command()
+@click.option("--model", help="Добавить модель.", type=str)
+@click.option("--panel", help="Добавить панель.", type=str, multiple=True)
+def add_model(model: str, panel: str) -> None:
+    data: list[MultiBaker] = [MultiBaker(model=model, panels=list(panel))]
+    fill_database(data=data)
+    click.echo(f"Модель: {model} - успешно добавлена")
 
 
 def main() -> None:
