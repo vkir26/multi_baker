@@ -1,8 +1,8 @@
 import sqlite3
+from http import HTTPStatus
 from pathlib import Path
 from dataclasses import dataclass
-from typing import TypedDict, cast
-from fastapi import HTTPException
+from typing import cast
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 filepath = ROOT_DIR / "files" / "multi_baker.db"
@@ -11,52 +11,64 @@ filepath = ROOT_DIR / "files" / "multi_baker.db"
 def insert_panels(cursor: sqlite3.Cursor, panels: set[str]) -> dict[str, int]:
     panel_id: dict[str, int] = {}
     for panel in panels:
-        cursor.execute(
-            """ INSERT INTO panel (panel)
-                VALUES (?) """,
-            (panel,),
-        )
-        rowid = cursor.lastrowid
-        if rowid is None:
-            raise RuntimeError("Не удалось получить id панели")
-        panel_id[panel] = rowid
+        try:
+            cursor.execute(
+                """ INSERT INTO panel (panel)
+                    VALUES (?) """,
+                (panel,),
+            )
+            rowid = cursor.lastrowid
+            if rowid:
+                panel_id[panel] = rowid
+
+        except sqlite3.IntegrityError:
+            cursor.execute(
+                """ SELECT id
+                               FROM panel
+                               WHERE panel = ? """,
+                (panel,),
+            )
+            row = cursor.fetchone()
+            if row:
+                panel_id[panel] = row[0]
     return panel_id
 
 
-class MultiBaker(TypedDict):
+@dataclass(frozen=True, slots=True)
+class MultiBaker:
     model: str
     panels: list[str]
 
 
-def insert_data(data: list[MultiBaker]) -> None:
+def insert_models(cursor: sqlite3.Cursor, model: str) -> int | None:
+    cursor.execute(
+        """ INSERT INTO multi_baker (model)
+            VALUES (?) """,
+        (model,),
+    )
+    model_id = cursor.lastrowid
+    return model_id
+
+
+def insert_data(baker: MultiBaker) -> None:
     try:
         with sqlite3.connect(filepath) as connect:
             cursor = connect.cursor()
-            unique_panels = {panel for baker in data for panel in baker["panels"]}
+
+            model_id = insert_models(cursor=cursor, model=baker.model)
+            unique_panels = {panel for panel in baker.panels}
             panels_id: dict[str, int] = insert_panels(
                 cursor=cursor, panels=unique_panels
             )
-            for baker in data:
+            for panel in unique_panels:
+                panel_id = panels_id[panel]
                 cursor.execute(
-                    """ INSERT INTO multi_baker (model)
-                        VALUES (?) """,
-                    (baker["model"],),
+                    """ INSERT INTO model_panel (model_id, panel_id)
+                        VALUES (?, ?) """,
+                    (model_id, panel_id),
                 )
-                model_id = cursor.lastrowid
-                for panel in baker["panels"]:
-                    panel_id = panels_id[panel]
-                    cursor.execute(
-                        """ INSERT INTO model_panel (model_id, panel_id)
-                            VALUES (?, ?) """,
-                        (model_id, panel_id),
-                    )
     except sqlite3.Error as e:
-        raise HTTPException(status_code=503, detail=f"Ошибка: {e}")
-
-
-def get_cursor() -> sqlite3.Cursor:
-    with sqlite3.connect(filepath) as connect:
-        return connect.cursor()
+        raise sqlite3.Error(f"{HTTPStatus.SERVICE_UNAVAILABLE.phrase}. {e}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +87,8 @@ def get_page_params(page: int | None, limit: int) -> list[int]:
 
 
 def get_data_multibakers(request: str, page: int | None, limit: int) -> list[BakerView]:
-    cursor = get_cursor()
+    with sqlite3.connect(filepath) as connect:
+        cursor = connect.cursor()
 
     params = get_page_params(page=page, limit=limit)
     if params:
@@ -86,13 +99,13 @@ def get_data_multibakers(request: str, page: int | None, limit: int) -> list[Bak
     ]
 
 
-def get_bakers(page: int | None, limit: int) -> list[BakerView]:
+def get_models_page(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, model
                   FROM multi_baker """
     return get_data_multibakers(request=request, page=page, limit=limit)
 
 
-def get_baking_tins(page: int | None, limit: int) -> list[BakerView]:
+def get_panels_page(page: int | None, limit: int) -> list[BakerView]:
     request = """ SELECT id, panel
                   FROM panel """
     return get_data_multibakers(request=request, page=page, limit=limit)
@@ -105,7 +118,9 @@ class BakerWithPanels:
 
 
 def get_baker(baker_id: int) -> BakerWithPanels | None:
-    cursor = get_cursor()
+    with sqlite3.connect(filepath) as connect:
+        cursor = connect.cursor()
+
     request = cursor.execute(
         """ SELECT model, panel
             FROM multi_baker mb
@@ -126,8 +141,10 @@ def get_baker(baker_id: int) -> BakerWithPanels | None:
     return BakerWithPanels(model="".join(baker), panels=panels)
 
 
-def get_baking_dish(panel_id: int) -> str | None:
-    cursor = get_cursor()
+def get_panel_by_id(panel_id: int) -> str | None:
+    with sqlite3.connect(filepath) as connect:
+        cursor = connect.cursor()
+
     request = cursor.execute(
         """ SELECT panel
             FROM panel
