@@ -1,0 +1,8 @@
+services:
+  web:
+    build: .
+    image: web-baker:1.0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./files:/app/files
