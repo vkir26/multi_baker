@@ -44,10 +44,10 @@
 
 ```bash
 uv run python main.py --help                                                        # показать список доступных команд.
-uv run python main.py file-parse --file='путь/к/файлу.csv'                                      # парсинг файла CSV и запись данных в БД
-uv run python main.py get-model --by_id='ID модели'                                   # поиск модели по ID.
+uv run python main.py file-parse --file='путь/к/файлу.csv'                          # парсинг файла CSV и запись данных в БД
+uv run python main.py get-model --by_id='ID модели'                                 # поиск модели по ID.
 uv run python main.py get-models --page='номер страницы'                            # показать список моделей на странице.
-uv run python main.py get-panel --by_id='ID панели'                                   # поиск панели по ID.
+uv run python main.py get-panel --by_id='ID панели'                                 # поиск панели по ID.
 uv run python main.py get-panels --page='номер страницы'                            # показать список панелей на странице.
 uv run python main.py add-model --model='название модели' --panel='название панели' # добавить новую модель мультипекаря с панелями.
 # Несколько панелей: повтори --panel (--panel A --panel B).
